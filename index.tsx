@@ -2,35 +2,60 @@
 //  CUỘC THI ĐIỀU DƯỠNG - React + TypeScript (Fixed Version)
 // ==========================================================
 
-// ✅ Đảm bảo TypeScript biết về cấu trúc toàn cục
-declare global {
-  interface Window {
-    APP_CONFIG: {
-      TEAMS: string[];
-      EXAM_DURATION: number;
-      QUESTION_COUNT: number;
-      GREETING_DURATION: number;
-      USERS: Record<string, { role: 'admin' | 'team'; name: string }>;
-    };
-    questionBank: { q: string; o: string[]; a: number }[];
+// ✅ Tích hợp dữ liệu cấu hình và câu hỏi trực tiếp vào file
+const APP_CONFIG = {
+  TEAMS: ['Đội 1', 'Đội 2', 'Đội 3', 'Đội 4', 'Đội 5'],
+  EXAM_DURATION: 20 * 60, // 20 phút tính bằng giây
+  QUESTION_COUNT: 50,
+  GREETING_DURATION: 10 * 60, // 10 phút tính bằng giây
+  USERS: {
+    'admin': { role: 'admin', name: 'Quản trị viên' },
+    'doi1': { role: 'team', name: 'Đội 1' },
+    'doi2': { role: 'team', name: 'Đội 2' },
+    'doi3': { role: 'team', name: 'Đội 3' },
+    'doi4': { role: 'team', name: 'Đội 4' },
+    'doi5': { role: 'team', name: 'Đội 5' },
   }
-}
+};
 
-// ✅ Thêm kiểm tra fallback phòng trường hợp script chưa load
-if (!window.APP_CONFIG) {
-  console.warn("⚠️ APP_CONFIG chưa tải, khởi tạo tạm để tránh lỗi.");
-  window.APP_CONFIG = {
-    TEAMS: [],
-    EXAM_DURATION: 0,
-    QUESTION_COUNT: 0,
-    GREETING_DURATION: 0,
-    USERS: {}
-  };
-}
-if (!window.questionBank) {
-  console.warn("⚠️ questionBank chưa tải, khởi tạo tạm để tránh lỗi.");
-  window.questionBank = [];
-}
+const questionBank = [
+  {
+    q: "Rửa tay thường quy theo quy trình của Bộ Y Tế gồm bao nhiêu bước?",
+    o: ["4 bước", "5 bước", "6 bước", "7 bước"],
+    a: 2 // Đáp án đúng là "6 bước"
+  },
+  {
+    q: "Chỉ số nào sau đây KHÔNG thuộc về dấu hiệu sinh tồn?",
+    o: ["Mạch", "Nhiệt độ", "Đường huyết mao mạch", "Huyết áp"],
+    a: 2 // Đáp án đúng là "Đường huyết mao mạch"
+  },
+  {
+    q: "Tư thế Fowler là tư thế nào?",
+    o: ["Nằm ngửa", "Nằm sấp", "Nằm nghiêng", "Nửa nằm nửa ngồi"],
+    a: 3 // Đáp án đúng là "Nửa nằm nửa ngồi"
+  },
+   {
+    q: "Kỹ thuật tiêm tĩnh mạch thường được thực hiện ở góc bao nhiêu độ?",
+    o: ["90 độ", "45 độ", "15-30 độ", "5-10 độ"],
+    a: 2
+  },
+  {
+    q: "Mục đích chính của việc ghi chép hồ sơ bệnh án là gì?",
+    o: ["Để làm thủ tục thanh toán viện phí", "Để theo dõi diễn biến bệnh và kết quả điều trị", "Để lưu trữ thông tin cá nhân của bệnh nhân", "Để làm bằng chứng pháp lý khi có kiện tụng"],
+    a: 1
+  },
+  ...Array.from({ length: 95 }, (_, i) => ({
+    q: `Đây là nội dung câu hỏi trắc nghiệm mẫu số ${i + 6}?`,
+    o: [
+      `Phương án trả lời A cho câu ${i + 6}`,
+      `Phương án trả lời B cho câu ${i + 6}`,
+      `Phương án trả lời C cho câu ${i + 6}`,
+      `Phương án trả lời D cho câu ${i + 6}`
+    ],
+    a: Math.floor(Math.random() * 4), // Đáp án đúng ngẫu nhiên
+  })),
+];
+
 
 // ==========================================================
 //  IMPORTS
@@ -58,7 +83,7 @@ const saveToStorage = (key: string, value: any) => {
 
 const getInitialScores = () => {
   const defaults: Record<string, any> = {};
-  window.APP_CONFIG.TEAMS.forEach(team => {
+  APP_CONFIG.TEAMS.forEach(team => {
     defaults[team] = { chaohoi: 0, lythuyet: 0, thuchanh: 0 };
   });
   return getFromStorage("scores", defaults);
@@ -88,7 +113,7 @@ const AdminScoreForm = ({ section, scores, setScores }) => {
           <tr><th>Tên Đội</th><th>Điểm</th></tr>
         </thead>
         <tbody>
-          {window.APP_CONFIG.TEAMS.map(team => (
+          {APP_CONFIG.TEAMS.map(team => (
             <tr key={team}>
               <td>{team}</td>
               <td>
@@ -108,7 +133,7 @@ const AdminScoreForm = ({ section, scores, setScores }) => {
 };
 
 const AdminGreetingTab = ({ scores, setScores }) => {
-  const GREETING_DURATION = window.APP_CONFIG.GREETING_DURATION;
+  const GREETING_DURATION = APP_CONFIG.GREETING_DURATION;
   const [status, setStatus] = useState(() => getFromStorage("greetingTimerStatus", "idle"));
   const [timeLeft, setTimeLeft] = useState(() => getFromStorage("greetingTimeLeft", GREETING_DURATION));
 
@@ -159,7 +184,7 @@ const AdminGreetingTab = ({ scores, setScores }) => {
 
 const TheoryExam = ({ user }) => {
   const [examState, setExamState] = useState(() => getFromStorage("examState", { status: "not_started" }));
-  const [timeLeft, setTimeLeft] = useState(window.APP_CONFIG.EXAM_DURATION);
+  const [timeLeft, setTimeLeft] = useState(APP_CONFIG.EXAM_DURATION);
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
   const [score, setScore] = useState<number | null>(null);
@@ -192,7 +217,7 @@ const TheoryExam = ({ user }) => {
 
   const finish = () => {
     let total = 0;
-    questions.forEach((q, i) => { if (answers[i] === q.a) total += 100 / window.APP_CONFIG.QUESTION_COUNT; });
+    questions.forEach((q, i) => { if (answers[i] === q.a) total += 100 / APP_CONFIG.QUESTION_COUNT; });
     total = Math.round(total);
     setScore(total);
     const all = getFromStorage("scores", {});
@@ -223,13 +248,13 @@ const TheoryExam = ({ user }) => {
 };
 
 const TotalScores = ({ scores }) => {
-  const teams = window.APP_CONFIG.TEAMS;
+  const teams = APP_CONFIG.TEAMS;
   const totals = useMemo(() => {
     return teams.map(t => {
       const s = scores[t] || { chaohoi: 0, lythuyet: 0, thuchanh: 0 };
       return { team: t, total: s.chaohoi + s.lythuyet + s.thuchanh, ...s };
     }).sort((a, b) => b.total - a.total);
-  }, [scores]);
+  }, [scores, teams]);
   return (
     <div>
       <h2>Bảng tổng điểm</h2>
@@ -278,7 +303,7 @@ const App = () => {
   useEffect(() => saveToStorage("examState", examState), [examState]);
 
   const login = username => {
-    const u = window.APP_CONFIG.USERS[username];
+    const u = APP_CONFIG.USERS[username];
     if (u) {
       const info = { username, ...u };
       setUser(info);
@@ -294,9 +319,9 @@ const App = () => {
   };
 
   const startExam = () => {
-    const qs = [...window.questionBank].sort(() => 0.5 - Math.random()).slice(0, window.APP_CONFIG.QUESTION_COUNT);
-    window.APP_CONFIG.TEAMS.forEach(t => saveToStorage(`exam_${t}`, { questions: qs, answers: {} }));
-    setExamState({ status: "started", endTime: Date.now() + window.APP_CONFIG.EXAM_DURATION * 1000 });
+    const qs = [...questionBank].sort(() => 0.5 - Math.random()).slice(0, APP_CONFIG.QUESTION_COUNT);
+    APP_CONFIG.TEAMS.forEach(t => saveToStorage(`exam_${t}`, { questions: qs, answers: {} }));
+    setExamState({ status: "started", endTime: Date.now() + APP_CONFIG.EXAM_DURATION * 1000 });
   };
 
   if (!user) return <LoginScreen onLogin={login} />;
