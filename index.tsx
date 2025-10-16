@@ -189,6 +189,17 @@ const TheoryExam = ({ user }) => {
   const [answers, setAnswers] = useState({});
   const [score, setScore] = useState<number | null>(null);
 
+  // Effect để đồng bộ trạng thái thi từ localStorage
+  useEffect(() => {
+    const syncState = () => {
+       const storedExamState = getFromStorage("examState", { status: "not_started" });
+       setExamState(storedExamState);
+    };
+    syncState(); // Cập nhật ngay khi component mount
+    window.addEventListener('storage', syncState); // Lắng nghe thay đổi từ các tab khác
+    return () => window.removeEventListener('storage', syncState);
+  }, []);
+
   useEffect(() => {
     if (examState.status === "started") {
       const data = getFromStorage(`exam_${user.name}`, null);
@@ -301,6 +312,25 @@ const App = () => {
 
   useEffect(() => saveToStorage("scores", scores), [scores]);
   useEffect(() => saveToStorage("examState", examState), [examState]);
+
+  // ✅ Đồng bộ hóa trạng thái từ localStorage trên các tab khác nhau
+  useEffect(() => {
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'scores' && event.newValue) {
+        setScores(JSON.parse(event.newValue));
+      }
+      if (event.key === 'examState' && event.newValue) {
+        setExamState(JSON.parse(event.newValue));
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
 
   const login = username => {
     const u = APP_CONFIG.USERS[username];
