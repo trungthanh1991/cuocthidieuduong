@@ -171,6 +171,7 @@ body {
 .team-score-card { background-color: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
 .team-score-card h3 { color: var(--primary-color); margin-bottom: 1rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; }
 .team-score-card p { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
+.team-score-card p span { font-weight: 600; }
 .team-score-card .total { margin-top: 1rem; padding-top: 1rem; border-top: 2px solid var(--primary-color); font-weight: 700; font-size: 1.2rem; }
 
 /* Countdown Overlay */

@@ -98,6 +98,39 @@ const formatTime = (seconds: number) => {
 // ==========================================================
 //  COMPONENTS
 // ==========================================================
+
+const CountdownOverlay = ({ startTime }) => {
+  const [countdown, setCountdown] = useState(0);
+
+  useEffect(() => {
+    const calculateRemaining = () => Math.max(0, Math.ceil((startTime - Date.now()) / 1000));
+    setCountdown(calculateRemaining());
+
+    const timerId = setInterval(() => {
+      setCountdown(calculateRemaining());
+    }, 1000);
+
+    return () => clearInterval(timerId);
+  }, [startTime]);
+  
+  if (countdown <= 0) return null; 
+
+  return (
+    <div className="countdown-overlay">
+      <div className="countdown-box">
+        <h2>Kỳ thi sẽ bắt đầu sau</h2>
+        <div className="countdown-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+          </svg>
+        </div>
+        <div className="countdown-timer">{countdown}</div>
+      </div>
+    </div>
+  );
+};
+
+
 const AdminScoreForm = ({ section, scores, setScores }) => {
   const handleChange = (team: string, val: string) => {
     const newScores = { ...scores };
@@ -144,9 +177,24 @@ const AdminGreetingTab = ({ scores, setScores }) => {
 
   useEffect(() => {
     if (status !== "running" || timeLeft <= 0) return;
-    const id = setInterval(() => setTimeLeft(t => t - 1), 1000);
+    const id = setInterval(() => setTimeLeft(t => t > 0 ? t - 1 : 0), 1000);
     return () => clearInterval(id);
   }, [status, timeLeft]);
+  
+   // Đồng bộ timer giữa các tab của admin
+  useEffect(() => {
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'greetingTimerStatus' && event.newValue) {
+        setStatus(JSON.parse(event.newValue));
+      }
+      if (event.key === 'greetingTimeLeft' && event.newValue) {
+        setTimeLeft(JSON.parse(event.newValue));
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
 
   const handleStart = () => setStatus("running");
   const handlePause = () => setStatus("paused");
@@ -217,7 +265,7 @@ const TheoryExam = ({ user }) => {
       const id = setInterval(tick, 1000);
       return () => clearInterval(id);
     }
-  }, [examState]);
+  }, [examState, user.name]);
 
   const handleAnswer = (qIdx, oIdx) => {
     const newAns = { ...answers, [qIdx]: oIdx };
@@ -227,6 +275,7 @@ const TheoryExam = ({ user }) => {
   };
 
   const finish = () => {
+    if (score !== null) return; // Tránh nộp bài nhiều lần
     let total = 0;
     questions.forEach((q, i) => { if (answers[i] === q.a) total += 100 / APP_CONFIG.QUESTION_COUNT; });
     total = Math.round(total);
@@ -237,7 +286,7 @@ const TheoryExam = ({ user }) => {
   };
 
   if (score !== null) return <h3>Bạn đã hoàn thành bài thi. Điểm: {score}</h3>;
-  if (examState.status === "not_started") return <p>Phần thi lý thuyết chưa bắt đầu.</p>;
+  if (examState.status !== "started") return <p>Phần thi lý thuyết chưa bắt đầu. Vui lòng chờ tín hiệu từ ban tổ chức.</p>;
 
   return (
     <div className="theory-container">
@@ -273,10 +322,10 @@ const TotalScores = ({ scores }) => {
         {totals.map(t => (
           <div key={t.team} className="team-score-card">
             <h3>{t.team}</h3>
-            <p>Chào hỏi: {t.chaohoi}</p>
-            <p>Lý thuyết: {t.lythuyet}</p>
-            <p>Thực hành: {t.thuchanh}</p>
-            <p className="total">Tổng: {t.total}</p>
+            <p>Chào hỏi: <span>{t.chaohoi}</span></p>
+            <p>Lý thuyết: <span>{t.lythuyet}</span></p>
+            <p>Thực hành: <span>{t.thuchanh}</span></p>
+            <p className="total">Tổng: <span>{t.total}</span></p>
           </div>
         ))}
       </div>
@@ -330,6 +379,21 @@ const App = () => {
       window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
+  
+  // Logic để admin tự động bắt đầu kỳ thi sau khi countdown kết thúc
+  useEffect(() => {
+    if (user?.role === 'admin' && examState.status === 'starting' && examState.startTime) {
+      const delay = examState.startTime - Date.now();
+      const timerId = setTimeout(() => {
+        // Logic bắt đầu thi thực sự
+        const qs = [...questionBank].sort(() => 0.5 - Math.random()).slice(0, APP_CONFIG.QUESTION_COUNT);
+        APP_CONFIG.TEAMS.forEach(t => saveToStorage(`exam_${t}`, { questions: qs, answers: {} }));
+        setExamState({ status: "started", endTime: Date.now() + APP_CONFIG.EXAM_DURATION * 1000 });
+      }, delay);
+
+      return () => clearTimeout(timerId); // Cleanup
+    }
+  }, [examState, user]);
 
 
   const login = username => {
@@ -348,21 +412,31 @@ const App = () => {
     localStorage.removeItem("currentUser");
   };
 
-  const startExam = () => {
-    const qs = [...questionBank].sort(() => 0.5 - Math.random()).slice(0, APP_CONFIG.QUESTION_COUNT);
-    APP_CONFIG.TEAMS.forEach(t => saveToStorage(`exam_${t}`, { questions: qs, answers: {} }));
-    setExamState({ status: "started", endTime: Date.now() + APP_CONFIG.EXAM_DURATION * 1000 });
+  const initiateExamStart = () => {
+    // Bắt đầu đếm ngược 5 giây
+    setExamState({ status: "starting", startTime: Date.now() + 5000 });
   };
+  
+  const renderAdminTheoryTab = () => {
+    switch (examState.status) {
+      case 'not_started':
+        return <button className="btn btn-primary" onClick={initiateExamStart}>Bắt đầu thi Lý Thuyết</button>;
+      case 'starting':
+        return <p>Đang đếm ngược để bắt đầu...</p>;
+      case 'started':
+        return <p>Kỳ thi đang diễn ra. Các đội đang làm bài.</p>;
+      default:
+        return null;
+    }
+  };
+
 
   if (!user) return <LoginScreen onLogin={login} />;
 
   const renderTab = () => {
     if (user.role === "admin") {
       if (active === "Chào hỏi") return <AdminGreetingTab scores={scores} setScores={setScores} />;
-      if (active === "Lý thuyết")
-        return examState.status === "not_started"
-          ? <button className="btn btn-primary" onClick={startExam}>Bắt đầu thi</button>
-          : <p>Kỳ thi đang diễn ra...</p>;
+      if (active === "Lý thuyết") return renderAdminTheoryTab();
       if (active === "Thực hành") return <AdminScoreForm section="thuchanh" scores={scores} setScores={setScores} />;
       if (active === "Tổng điểm") return <TotalScores scores={scores} />;
     } else {
@@ -375,6 +449,7 @@ const App = () => {
 
   return (
     <div className="app-container">
+      {examState.status === 'starting' && examState.startTime && <CountdownOverlay startTime={examState.startTime} />}
       <header className="app-header">
         <h1>Cuộc Thi Điều Dưỡng</h1>
         <div>
