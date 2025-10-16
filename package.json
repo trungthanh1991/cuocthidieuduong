@@ -10,9 +10,7 @@
   },
   "dependencies": {
     "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js": "latest",
-    "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js": "latest"
+    "react-dom": "^19.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

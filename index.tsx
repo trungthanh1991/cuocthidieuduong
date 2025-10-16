@@ -4,8 +4,9 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { createRoot } from "react-dom/client";
-import { db } from './firebase'; // Import a database instance
-import { ref, onValue, set, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+// Sửa lỗi: Tập trung tất cả các import của Firebase vào một file duy nhất (`firebase.ts`)
+// để đảm bảo service database được khởi tạo và đăng ký đúng cách trước khi sử dụng.
+import { db, ref, onValue, set, update } from './firebase';
 
 
 // ✅ Dữ liệu cấu hình và câu hỏi
